@@ -48,5 +48,7 @@ plt.xlabel("Index of CpG site")
 plt.ylabel("Methylation Beta")
 plt.show()  # This plot shows the top 100 CpG sites with the highest difference between cancer/noncancer cases.
 
+
+# not used yet
 variances = methyl.var(axis=0)
 variances = variances.nlargest(100)
