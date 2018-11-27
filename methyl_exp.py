@@ -6,6 +6,13 @@ import matplotlib.pyplot as plt
 
 direc = "C:/Users/chsue/Documents/MITyear3/6.047/GDACLAMLmethyl450/data/"
 
+GSE41169controlcols = ['"GSM1009' + x +'"' for x in ["666","667","668","673","674","677","681","685","686","687","688","689","690","691","692","693","694","695","697","723",
+                       "727","729","739","742","743","744","745","746","747","748","749","892","893"]]
+
+GSE63499controlcols = ['"GSM1551' + x +'"' for x in ["110","114","118","122","126","132","136","140","144","148","152","156"]]
+
+GSE64495controlcols = ['"GSM157250' + str(x) +'"' for x in range(3,10)] + ['"GSM15725' + str(x) +'"' for x in range(10,65)]
+
 # ---------------- DATA (PANDAS) PROCESSING -------------------------------- #
 def process_cancer(chunk):
     cg = chunk["Hybridization REF"]
@@ -16,13 +23,27 @@ def process_cancer(chunk):
         chunk = chunk.drop("Composite Element REF", axis=0)
     return chunk.apply(pd.to_numeric).round()
 
-def process_control(chunk):
+def process_control_1(chunk):
     # for control, isolate the control samples.
     controlCG = chunk["ID_REF"]
     controlCols = ["1B","2A","3B","3","5","13","19","10","12","14","2","239","200","181","195","308","310","8B","10A","11B"]
     control = chunk[controlCols]
     control["ID_REF"] = controlCG
     return control.set_index("ID_REF").round()
+
+def process_control_3(chunk):
+    controlCG = chunk["ID_REF"]
+    controlCols = ["GSM1280" + str(937+x) for x in range(0,27)]+["GSM1280" + str(991+x) for x in range(0,9)] + ["GSM128" + str(1000+x) for x in range(0,25)]
+    control = chunk[controlCols]
+    control["ID_REF"] = controlCG
+    return control.set_index("ID_REF").round()
+
+def process_control_2(chunk, controlColNames):
+    chunk['"ID_REF"'] = [i[1:len(i) - 1] for i in chunk['"ID_REF"']]
+    controlCG = chunk['"ID_REF"']
+    control = chunk[controlColNames]
+    control["ID_REF"] = controlCG
+    return control.set_index("ID_REF").apply(pd.to_numeric).round()
 
 # ---------------- IMPORTING CANCER DATA ------------------------- #
 print("Importing cancer type....")  # cancer samples are from TCGA-LAML
@@ -53,11 +74,20 @@ def import_all_control():
 def identify_significant_cpgSites():
     cpgSites = pd.Index([])
     count = 0
-    for chunk1, chunk2 in zip(pd.read_table(direc+"LAMLmethyl450.txt", chunksize=4500),
-                                           pd.read_table(direc+"GSE32148_matrix_processed_peripheralBlood.txt",chunksize=4500,delimiter=r"\t+")):
+    for chunk1, chunk2,chunk3, chunk4,chunk5,chunk6 in zip(pd.read_table(direc+"LAMLmethyl450.txt", chunksize=4500),
+                                           pd.read_table(direc+"GSE32148_matrix_processed_peripheralBlood.txt",chunksize=4500,delimiter=r"\t+"),
+                                                           pd.read_table(direc + "GSE41169_series_matrix.txt", chunksize=4500, delimiter=r"\t+"),
+                                                           pd.read_table(direc + "GSE53045_matrix_processed_GEO.txt", chunksize=4500, delimiter=r"\t+"),
+                                                           pd.read_table(direc + "GSE63499_series_matrix.txt", chunksize=4500, delimiter=r"\t+"),
+                                                           pd.read_table(direc + "GSE64495_series_matrix.txt", chunksize=4500, delimiter=r"\t+")):
         print(count)
-        cancer_chunk, control_chunk = process_cancer(chunk1), process_control(chunk2)
-        total_chunk = pd.concat([cancer_chunk,control_chunk],axis=1).dropna()
+        cancer_chunk, control_chunk_1,control_chunk_2,control_chunk_3,control_chunk_4,control_chunk_5 = process_cancer(chunk1), \
+                                                                                                        process_control_1(chunk2),\
+                                                                                                        process_control_2(chunk3,GSE41169controlcols), \
+                                                                                                        process_control_3(chunk4), \
+                                                                                                        process_control_2(chunk5,GSE63499controlcols), \
+                                                                                                        process_control_2(chunk6, GSE64495controlcols)
+        total_chunk = pd.concat([cancer_chunk,control_chunk_1,control_chunk_2,control_chunk_3,control_chunk_4,control_chunk_5],axis=1).dropna()
         variances = total_chunk.var(axis=1)
         diffIndices = variances.nlargest(100).index
         cpgSites = cpgSites.union(diffIndices)
