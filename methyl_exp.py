@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans
-import sklearn.decomposition
+from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 direc = "C:/Users/chsue/Documents/MITyear3/6.047/GDACLAMLmethyl450/data/"
 
@@ -70,11 +71,11 @@ def import_all_control():
 
 # cancerVcontrol = methyl.iloc[:,0:20].join(control).dropna(axis=0)
 
-# --------- calculate the abs difference in averages between cancer/control for CpG sites ------- #
-def identify_significant_cpgSites():
+# --------- calculate the abs difference in averages between cancer/control for CpG sites -------- #
+def identify_significant_cpgSites(sampleNames=None):
     cpgSites = pd.Index([])
     count = 0
-    for chunk1, chunk2,chunk3, chunk4,chunk5,chunk6 in zip(pd.read_table(direc+"LAMLmethyl450.txt", chunksize=4500),
+    for chunk1, chunk2,chunk3, chunk4, chunk5, chunk6 in zip(pd.read_table(direc+"LAMLmethyl450.txt", chunksize=4500),
                                            pd.read_table(direc+"GSE32148_matrix_processed_peripheralBlood.txt",chunksize=4500,delimiter=r"\t+"),
                                                            pd.read_table(direc + "GSE41169_series_matrix.txt", chunksize=4500, delimiter=r"\t+"),
                                                            pd.read_table(direc + "GSE53045_matrix_processed_GEO.txt", chunksize=4500, delimiter=r"\t+"),
@@ -87,9 +88,17 @@ def identify_significant_cpgSites():
                                                                                                         process_control_3(chunk4), \
                                                                                                         process_control_2(chunk5,GSE63499controlcols), \
                                                                                                         process_control_2(chunk6, GSE64495controlcols)
+        if sampleNames is not None:
+            cancer_chunk = cancer_chunk[list(set(sampleNames) & set(list(cancer_chunk)))]
+            control_chunk_1 = control_chunk_1[list(set(sampleNames) & set(list(control_chunk_1)))]
+            control_chunk_2 = control_chunk_2[list(set(sampleNames) & set(list(control_chunk_2)))]
+            control_chunk_3 = control_chunk_3[list(set(sampleNames) & set(list(control_chunk_3)))]
+            control_chunk_4 = control_chunk_4[list(set(sampleNames) & set(list(control_chunk_4)))]
+            control_chunk_5 = control_chunk_5[list(set(sampleNames) & set(list(control_chunk_5)))]
         total_chunk = pd.concat([cancer_chunk,control_chunk_1,control_chunk_2,control_chunk_3,control_chunk_4,control_chunk_5],axis=1).dropna()
         variances = total_chunk.var(axis=1)
         diffIndices = variances.nlargest(100).index
+
         cpgSites = cpgSites.union(diffIndices)
         count += 1
     return cpgSites
@@ -101,12 +110,12 @@ def identify_significant_cpgSites():
 #
 # methylAvgs = methylAvgs[diffIndices]
 # controlAvgs = controlAvgs[diffIndices]
-
-significantSites = identify_significant_cpgSites()
-f = open("SignificantCpG_Variances", 'w')
-for site in significantSites:
-    f.write(site + "\n")
-f.close()
+def significantSites(iter, sampleSites=None):
+    significantSites = identify_significant_cpgSites(sampleNames=sampleSites)
+    f = open("SignificantCpG_Variances_iter"+str(iter), 'w')
+    for site in significantSites:
+        f.write(site + "\n")
+    f.close()
 # --------------- PLOTTING ----------------------------------------#
 # p = plt.scatter(range(len(methylAvgs)),methylAvgs,c='r')
 # plt.scatter(range(len(controlAvgs)), controlAvgs,c='g')
